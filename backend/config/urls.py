@@ -1,6 +1,7 @@
 from django.urls import path, include
 
 urlpatterns = [
+    path('api/auth/', include('platform.authentication.api.urls')),
     path('api/services/', include('apps.services.urls')),
     path('api/events/', include('apps.events.urls')),
     path('api/correlations/', include('apps.correlations.urls')),
