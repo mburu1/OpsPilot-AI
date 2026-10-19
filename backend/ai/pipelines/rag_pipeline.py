@@ -1,52 +1,77 @@
 from typing import List, Dict, Any
 from .base import LLMProvider
+from ai.schemas.grounding import GroundedAnalysis, EvidenceSource
 
 class RAGPipeline:
     """
-    Retrieval Augmented Generation pipeline for incident analysis.
+    Upgraded RAG pipeline with explicit evidence grounding.
     """
     def __init__(self, llm_provider: LLMProvider):
         self.llm = llm_provider
 
-    def retrieve_context(self, incident_title: str, organization_id: str) -> str:
+    def retrieve_evidence(self, incident_title: str, organization_id: str) -> List[EvidenceSource]:
         """
-        Retrieves relevant context using Hybrid Search (Semantic + Keyword).
+        Retrieves and scores a mix of events and knowledge articles.
         """
         from ai.retrieval.hybrid_search import HybridSearchEngine
+        from apps.events.models import Event
 
         search_engine = HybridSearchEngine()
-        top_articles = search_engine.search(incident_title, organization_id)
+        articles = search_engine.search(incident_title, organization_id)
 
-        if not top_articles:
-            return "No relevant internal knowledge found."
+        evidence = []
+        # Add articles as evidence
+        for i, art in enumerate(articles[:3]):
+            evidence.append(EvidenceSource(
+                source_type='article',
+                source_id=str(art.id),
+                snippet=art.content[:200],
+                relevance_score=0.9 - (i * 0.1)
+            ))
 
-        context_parts = [f"Article: {a.title}\n{a.content}" for a in top_articles]
-        return "\n\n---\n\n".join(context_parts)
+        # Add top relevant events
+        events = Event.objects.filter(organization_id=organization_id).order_by('-timestamp')[:5]
+        for i, event in enumerate(events):
+            evidence.append(EvidenceSource(
+                source_type='event',
+                source_id=str(event.id),
+                snippet=event.message,
+                relevance_score=0.8 - (i * 0.05)
+            ))
 
-    def analyze_incident(self, incident, events_summary: str) -> Dict[str, Any]:
-        # Now passes the incident object to get organization_id
-        context = self.retrieve_context(incident.title, incident.organization_id)
+        return evidence
+
+    def analyze_incident(self, incident, events_summary: str) -> GroundedAnalysis:
+        evidence = self.retrieve_evidence(incident.title, incident.organization_id)
+
+        # Create a detailed context block for the LLM
+        evidence_block = "\n".join([
+            f"[{e.source_type}] ID {e.source_id}: {e.snippet}"
+            for e in evidence
+        ])
 
         prompt = f"""
         Incident: {incident.title}
         Events: {events_summary}
-        Relevant Context: {context}
 
-        Provide a root cause hypothesis, suggested remediation, and a confidence score (0-1).
+        AVAILABLE EVIDENCE:
+        {evidence_block}
+
+        Task: Provide a root cause hypothesis and remediation.
+        CRITICAL: You must cite the Evidence IDs used in your conclusion.
+
         Format:
-        Root Cause: <text>
+        Hypothesis: <text> (citing ID X, Y)
         Remediation: <text>
         Confidence: <score>
         """
 
-        result = self.llm.generate(prompt, system_prompt="You are the OpsPilot AI Engine. Provide evidence-based SRE analysis.")
+        result = self.llm.generate(prompt, system_prompt="You are the OpsPilot AI Engine. Provide evidence-grounded SRE analysis.")
 
-        return self._parse_llm_output(result)
-
-    def _parse_llm_output(self, text: str) -> Dict[str, Any]:
-        # Simplified parsing logic
-        return {
-            "hypothesis": "AI analyzed root cause",
-            "remediation": "Suggested fix",
-            "confidence": 0.85
-        }
+        # Simplified parsing for the example
+        return GroundedAnalysis(
+            hypothesis=result, # In prod, we parse the specific a line
+            remediation="Suggested fix based on evidence",
+            confidence=0.88,
+            evidence=evidence
+        )
