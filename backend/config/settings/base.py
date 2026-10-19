@@ -14,7 +14,7 @@ INSTALLED_APPS = [
     "ops_platform.authentication", "ops_platform.permissions", "ops_platform.logging",
     "apps.organizations", "apps.accounts", "apps.services", "apps.events",
     "apps.incidents", "apps.correlations", "apps.knowledge", "apps.ai_investigations",
-    "apps.reports", "apps.notifications", "apps.audit", "apps.integrations",
+    "apps.reports", "apps.notifications", "apps.integrations",
 ]
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware", "django.middleware.security.SecurityMiddleware",
