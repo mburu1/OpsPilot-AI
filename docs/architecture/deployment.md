@@ -18,7 +18,7 @@ flowchart TB
     Provider["Configured LLM / embedding provider"]
     Source["Monitoring and deployment event sources"]
 
-    Browser -->|HTTP(S)| Frontend
+    Browser -->|HTTPS| Frontend
     Frontend -->|REST / WebSocket| Web
     Source -->|Authenticated event ingestion| Web
     Web -->|Transactions| DB
