@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from .base import LLMProvider
 
 class RAGPipeline:
@@ -8,40 +8,27 @@ class RAGPipeline:
     def __init__(self, llm_provider: LLMProvider):
         self.llm = llm_provider
 
-    def retrieve_context(self, incident_title: str) -> str:
+    def retrieve_context(self, incident_title: str, organization_id: str) -> str:
         """
-        Retrieves relevant context from the KnowledgeBase using semantic search.
+        Retrieves relevant context using Hybrid Search (Semantic + Keyword).
         """
-        from apps.knowledge.models import KnowledgeArticle
-        from ai.providers.openai import OpenAIProvider
+        from ai.retrieval.hybrid_search import HybridSearchEngine
 
-        # 1. Embed the query
-        provider = OpenAIProvider()
-        query_vector = provider.embed(incident_title)
+        search_engine = HybridSearchEngine()
+        top_articles = search_engine.search(incident_title, organization_id)
 
-        # 2. Semantic Search (Simplified cosine similarity implementation)
-        # In production, this is replaced by: KnowledgeArticle.objects.filter(embedding__similarity=query_vector)
-        articles = KnowledgeArticle.objects.all()
-        best_match = None
-        max_sim = -1
+        if not top_articles:
+            return "No relevant internal knowledge found."
 
-        for art in articles:
-            # Manual cosine similarity for demonstration (should use pgvector in prod)
-            import numpy as np
-            sim = np.dot(query_vector, art.embedding) / (
-                np.linalg.norm(query_vector) * np.linalg.norm(art.embedding)
-            )
-            if sim > max_sim:
-                max_sim = sim
-                best_match = art
+        context_parts = [f"Article: {a.title}\n{a.content}" for a in top_articles]
+        return "\n\n---\n\n".join(context_parts)
 
-        return f"Relevant Article: {best_match.title}\nContent: {best_match.content}" if best_match else "No relevant internal knowledge found."
-
-    def analyze_incident(self, incident_title: str, events_summary: str) -> Dict[str, Any]:
-        context = self.retrieve_context(incident_title)
+    def analyze_incident(self, incident, events_summary: str) -> Dict[str, Any]:
+        # Now passes the incident object to get organization_id
+        context = self.retrieve_context(incident.title, incident.organization_id)
 
         prompt = f"""
-        Incident: {incident_title}
+        Incident: {incident.title}
         Events: {events_summary}
         Relevant Context: {context}
 
@@ -54,12 +41,10 @@ class RAGPipeline:
 
         result = self.llm.generate(prompt, system_prompt="You are the OpsPilot AI Engine. Provide evidence-based SRE analysis.")
 
-        # Simplified parsing logic
         return self._parse_llm_output(result)
 
     def _parse_llm_output(self, text: str) -> Dict[str, Any]:
-        # In production, we use structured outputs (JSON mode)
-        lines = text.split('\n')
+        # Simplified parsing logic
         return {
             "hypothesis": "AI analyzed root cause",
             "remediation": "Suggested fix",
