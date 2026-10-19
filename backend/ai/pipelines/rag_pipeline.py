@@ -8,12 +8,34 @@ class RAGPipeline:
     def __init__(self, llm_provider: LLMProvider):
         self.llm = llm_provider
 
-    def retrieve_context(self, incident_id: str) -> str:
+    def retrieve_context(self, incident_title: str) -> str:
         """
-        Simulates retrieval from a Vector Database.
-        In production, this queries Milvus/Pinecone using embeddings.
+        Retrieves relevant context from the KnowledgeBase using semantic search.
         """
-        return "Similar past incident: 'Database connection timeout' resolved by increasing pool size."
+        from apps.knowledge.models import KnowledgeArticle
+        from ai.providers.openai import OpenAIProvider
+
+        # 1. Embed the query
+        provider = OpenAIProvider()
+        query_vector = provider.embed(incident_title)
+
+        # 2. Semantic Search (Simplified cosine similarity implementation)
+        # In production, this is replaced by: KnowledgeArticle.objects.filter(embedding__similarity=query_vector)
+        articles = KnowledgeArticle.objects.all()
+        best_match = None
+        max_sim = -1
+
+        for art in articles:
+            # Manual cosine similarity for demonstration (should use pgvector in prod)
+            import numpy as np
+            sim = np.dot(query_vector, art.embedding) / (
+                np.linalg.norm(query_vector) * np.linalg.norm(art.embedding)
+            )
+            if sim > max_sim:
+                max_sim = sim
+                best_match = art
+
+        return f"Relevant Article: {best_match.title}\nContent: {best_match.content}" if best_match else "No relevant internal knowledge found."
 
     def analyze_incident(self, incident_title: str, events_summary: str) -> Dict[str, Any]:
         context = self.retrieve_context(incident_title)

@@ -7,4 +7,5 @@ urlpatterns = [
     path('api/correlations/', include('apps.correlations.urls')),
     path('api/incidents/', include('apps.incidents.urls')),
     path('api/investigations/', include('apps.ai_investigations.urls')),
+    path('api/knowledge/', include('apps.knowledge.urls')),
 ]
