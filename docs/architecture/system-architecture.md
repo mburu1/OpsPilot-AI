@@ -140,7 +140,8 @@ sequenceDiagram
     Engineer->>API: Request investigation for incident
     API->>DB: Check tenant access and persist investigation job
     API->>Queue: Enqueue investigation
-    API-->>Engineer: Accepted; return job identifier
+    API-->>Engineer: Accepted, return job identifier
+
     Queue->>Worker: Run investigation task
     Worker->>DB: Load incident context and permitted evidence
     Worker->>Retriever: Search runbooks, prior incidents, service docs
