@@ -4,6 +4,8 @@ These ADRs capture decisions explicitly stated or recommended in the attached Op
 
 ## Index
 
+- [ADR template](adr-template.md) — use this structure for future decisions.
+
 - [ADR-001: Modular monolith with independently scalable workers](ADR-001-modular-monolith.md)
 - [ADR-002: PostgreSQL with pgvector as the authoritative data and retrieval store](ADR-002-postgresql-pgvector.md)
 - [ADR-003: Evidence-grounded, provider-neutral AI](ADR-003-evidence-grounded-ai.md)
