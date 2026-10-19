@@ -1,5 +1,6 @@
 from django.urls import path, include
 
 urlpatterns = [
-    # Base API routes will be added here as apps are developed
+    path('api/services/', include('apps.services.urls')),
+    path('api/events/', include('apps.events.urls')),
 ]
